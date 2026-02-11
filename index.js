@@ -108,6 +108,21 @@ io.on('connection', (socket) => {
   });
 
   // ============================================================================
+  // BROADCAST PLAYERS UPDATED - Notify all clients in game room to refresh player list
+  // (e.g. after join, exit, block, unblock, game deleted)
+  // ============================================================================
+  socket.on('broadcast_players_updated', ({ gameId }) => {
+    if (!gameId) {
+      console.warn('[Socket.IO] broadcast_players_updated: missing gameId');
+      return;
+    }
+    const roomName = getGameRoomName(gameId);
+    const recipientCount = getRoomSize(roomName);
+    io.to(roomName).emit('game_players_updated', { gameId });
+    console.log(`[Socket.IO] broadcast_players_updated → ${roomName} (${recipientCount} clients)`);
+  });
+
+  // ============================================================================
   // BROADCAST COMMENT - Client sends new comment, server broadcasts to room
   // So all other clients (and sender via echo) get real-time update
   // ============================================================================

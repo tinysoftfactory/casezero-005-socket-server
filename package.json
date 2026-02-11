@@ -1,16 +1,21 @@
 {
   "name": "casezerosocketserver",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "dev": "nodemon index.js"
   },
   "version": "1.0.0",
   "main": "index.js",
-  "keywords": [],
+  "keywords": ["socket.io", "websocket", "real-time", "chat"],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "Socket.IO server for CaseZero real-time game chat",
   "dependencies": {
+    "dotenv": "^16.4.7",
     "express": "^5.1.0",
     "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
   }
 }

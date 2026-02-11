@@ -108,6 +108,26 @@ io.on('connection', (socket) => {
   });
 
   // ============================================================================
+  // BROADCAST COMMENT - Client sends new comment, server broadcasts to room
+  // So all other clients (and sender via echo) get real-time update
+  // ============================================================================
+  socket.on('broadcast_comment_new', ({ gameId, comment }) => {
+    if (!gameId || !comment) {
+      console.warn('[Socket.IO] broadcast_comment_new: missing gameId or comment');
+      return;
+    }
+    const roomName = getGameRoomName(gameId);
+    // Only broadcast if sender is in the room
+    if (!clientInfo.rooms.has(roomName)) {
+      console.warn(`[Socket.IO] Socket ${socket.id} not in room ${roomName}, ignoring broadcast`);
+      return;
+    }
+    const recipientCount = getRoomSize(roomName);
+    io.to(roomName).emit('game_comment_new', comment);
+    console.log(`[Socket.IO] broadcast_comment_new → ${roomName} (${recipientCount} clients)`);
+  });
+
+  // ============================================================================
   // MESSAGE - Send message to room
   // ============================================================================
   socket.on('message', ({ room, message }) => {

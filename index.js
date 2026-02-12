@@ -123,6 +123,20 @@ io.on('connection', (socket) => {
   });
 
   // ============================================================================
+  // BROADCAST VOTE ADDED - Client voted, server broadcasts to room
+  // ============================================================================
+  socket.on('broadcast_vote_added', ({ gameId, pageId, vote }) => {
+    if (!gameId || !pageId || !vote) {
+      console.warn('[Socket.IO] broadcast_vote_added: missing gameId, pageId or vote');
+      return;
+    }
+    const roomName = getGameRoomName(gameId);
+    const recipientCount = getRoomSize(roomName);
+    io.to(roomName).emit('vote_added', { gameId, pageId, vote });
+    console.log(`[Socket.IO] vote_added → ${roomName} page ${pageId} (${recipientCount} clients)`);
+  });
+
+  // ============================================================================
   // BROADCAST COMMENT - Client sends new comment, server broadcasts to room
   // So all other clients (and sender via echo) get real-time update
   // ============================================================================

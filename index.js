@@ -123,6 +123,20 @@ io.on('connection', (socket) => {
   });
 
   // ============================================================================
+  // BROADCAST GAME STARTED - Owner started the game; notify all players to open first page
+  // ============================================================================
+  socket.on('broadcast_game_started', ({ gameId, pageId }) => {
+    if (!gameId || pageId == null) {
+      console.warn('[Socket.IO] broadcast_game_started: missing gameId or pageId');
+      return;
+    }
+    const roomName = getGameRoomName(gameId);
+    const recipientCount = getRoomSize(roomName);
+    io.to(roomName).emit('game_started', { gameId, pageId });
+    console.log(`[Socket.IO] game_started → ${roomName} pageId=${pageId} (${recipientCount} clients)`);
+  });
+
+  // ============================================================================
   // BROADCAST VOTE ADDED - Client voted, server broadcasts to room
   // ============================================================================
   socket.on('broadcast_vote_added', ({ gameId, pageId, vote }) => {

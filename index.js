@@ -151,6 +151,20 @@ io.on('connection', (socket) => {
   });
 
   // ============================================================================
+  // BROADCAST VOTES CLEARED - Opinions divided, votes reset
+  // ============================================================================
+  socket.on('broadcast_votes_cleared', ({ gameId, pageId }) => {
+    if (!gameId || !pageId) {
+      console.warn('[Socket.IO] broadcast_votes_cleared: missing gameId or pageId');
+      return;
+    }
+    const roomName = getGameRoomName(gameId);
+    const recipientCount = getRoomSize(roomName);
+    io.to(roomName).emit('votes_cleared', { gameId, pageId });
+    console.log(`[Socket.IO] votes_cleared → ${roomName} page ${pageId} (${recipientCount} clients)`);
+  });
+
+  // ============================================================================
   // BROADCAST COMMENT - Client sends new comment, server broadcasts to room
   // So all other clients (and sender via echo) get real-time update
   // ============================================================================
@@ -328,7 +342,7 @@ app.post('/api/broadcast/game-comment/delete', (req, res) => {
   const { gameId, commentId } = req.body;
 
   if (!gameId || !commentId) {
-    return res.status(400).json({ 
+    return res.status(400).json({
       error: 'Missing required fields',
       required: ['gameId', 'commentId']
     });
@@ -340,13 +354,46 @@ app.post('/api/broadcast/game-comment/delete', (req, res) => {
     gameId: gameId
   });
 
-  res.json({ 
-    success: true, 
+  res.json({
+    success: true,
     gameId,
     commentId,
     room: roomName,
     recipients: recipientCount,
     event: 'game_comment_delete',
+    timestamp: new Date().toISOString()
+  });
+});
+
+/**
+ * Broadcast votes cleared - opinions divided, users need to vote again
+ * POST /api/broadcast/votes-cleared
+ * Body: { gameId: number, pageId: number }
+ */
+app.post('/api/broadcast/votes-cleared', (req, res) => {
+  const { gameId, pageId } = req.body;
+
+  if (!gameId || pageId == null) {
+    return res.status(400).json({
+      error: 'Missing required fields',
+      required: ['gameId', 'pageId']
+    });
+  }
+
+  const roomName = getGameRoomName(gameId);
+  const recipientCount = emitToGame(gameId, 'votes_cleared', {
+    gameId,
+    pageId
+  });
+
+  res.json({
+    success: true,
+    gameId,
+    pageId,
+    room: roomName,
+    recipients: recipientCount,
+    event: 'votes_cleared',
+    message: 'Votes cleared - opinions were divided',
     timestamp: new Date().toISOString()
   });
 });
@@ -402,6 +449,7 @@ server.listen(PORT, HOST, () => {
   console.log(`   POST /api/broadcast/game-comment/new    - Broadcast new comment`);
   console.log(`   POST /api/broadcast/game-comment/edit   - Broadcast edit`);
   console.log(`   POST /api/broadcast/game-comment/delete - Broadcast delete`);
+  console.log(`   POST /api/broadcast/votes-cleared       - Broadcast votes cleared`);
   console.log(`   POST /api/test/send-message             - Test message`);
   console.log('='.repeat(80));
   console.log(`⚙️  Environment:    ${process.env.NODE_ENV || 'development'}`);

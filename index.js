@@ -165,6 +165,34 @@ io.on('connection', (socket) => {
   });
 
   // ============================================================================
+  // BROADCAST GAME DELETED - Owner deleted the game; remove it from story lobby
+  // ============================================================================
+  socket.on('broadcast_game_deleted', ({ storyId, gameId }) => {
+    if (!storyId || !gameId) {
+      console.warn('[Socket.IO] broadcast_game_deleted: missing storyId or gameId');
+      return;
+    }
+    const roomName = `story_${storyId}`;
+    const recipientCount = getRoomSize(roomName);
+    io.to(roomName).emit('game_deleted', { gameId });
+    console.log(`[Socket.IO] broadcast_game_deleted → ${roomName} gameId=${gameId} (${recipientCount} clients)`);
+  });
+
+  // ============================================================================
+  // BROADCAST GAME NEW - Creator notifies story lobby about a new public game
+  // ============================================================================
+  socket.on('broadcast_game_new', ({ storyId, game }) => {
+    if (!storyId || !game) {
+      console.warn('[Socket.IO] broadcast_game_new: missing storyId or game');
+      return;
+    }
+    const roomName = `story_${storyId}`;
+    const recipientCount = getRoomSize(roomName);
+    io.to(roomName).emit('game_new', game);
+    console.log(`[Socket.IO] broadcast_game_new → ${roomName} gameId=${game.id} (${recipientCount} clients)`);
+  });
+
+  // ============================================================================
   // BROADCAST COMMENT - Client sends new comment, server broadcasts to room
   // So all other clients (and sender via echo) get real-time update
   // ============================================================================
@@ -366,6 +394,43 @@ app.post('/api/broadcast/game-comment/delete', (req, res) => {
 });
 
 /**
+ * Broadcast new game created for a story - notify all clients watching the story lobby
+ * POST /api/broadcast/story-game/new
+ * Body: { storyId: number, game: object }
+ */
+app.post('/api/broadcast/story-game/new', (req, res) => {
+  const { storyId, game } = req.body;
+
+  if (!storyId || !game) {
+    return res.status(400).json({
+      error: 'Missing required fields',
+      required: ['storyId', 'game']
+    });
+  }
+
+  if (!game.id) {
+    return res.status(400).json({
+      error: 'Game must have id field'
+    });
+  }
+
+  const roomName = `story_${storyId}`;
+  const recipientCount = io.sockets.adapter.rooms.get(roomName)?.size ?? 0;
+  io.to(roomName).emit('game_new', game);
+
+  console.log(`[Emit] game_new to ${roomName} - ${recipientCount} clients`);
+
+  res.json({
+    success: true,
+    storyId,
+    room: roomName,
+    recipients: recipientCount,
+    event: 'game_new',
+    timestamp: new Date().toISOString()
+  });
+});
+
+/**
  * Broadcast votes cleared - opinions divided, users need to vote again
  * POST /api/broadcast/votes-cleared
  * Body: { gameId: number, pageId: number }
@@ -450,7 +515,7 @@ server.listen(PORT, HOST, () => {
   console.log(`   POST /api/broadcast/game-comment/edit   - Broadcast edit`);
   console.log(`   POST /api/broadcast/game-comment/delete - Broadcast delete`);
   console.log(`   POST /api/broadcast/votes-cleared       - Broadcast votes cleared`);
-  console.log(`   POST /api/test/send-message             - Test message`);
+  console.log(`   POST /api/broadcast/story-game/new      - Broadcast new game created for story`);
   console.log('='.repeat(80));
   console.log(`⚙️  Environment:    ${process.env.NODE_ENV || 'development'}`);
   console.log(`🕐 Started at:     ${new Date().toISOString()}`);

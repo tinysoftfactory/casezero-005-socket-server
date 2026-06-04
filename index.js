@@ -202,10 +202,17 @@ io.on('connection', (socket) => {
       return;
     }
     const roomName = getGameRoomName(gameId);
-    // Only broadcast if sender is in the room
-    if (!clientInfo.rooms.has(roomName)) {
-      console.warn(`[Socket.IO] Socket ${socket.id} not in room ${roomName}, ignoring broadcast`);
-      return;
+    // Ensure the sender is actually joined to the room before broadcasting.
+    // Socket.IO's real membership (`socket.rooms`) can desync from our manual
+    // `clientInfo.rooms` bookkeeping after a reconnect / connection-state
+    // recovery; relying on the manual set silently dropped legit messages
+    // (this is why chat broadcasts went missing). Self-heal, then broadcast to
+    // everyone in the room — matching the other broadcast_* handlers, which
+    // never gated on membership.
+    if (!socket.rooms.has(roomName)) {
+      socket.join(roomName);
+      clientInfo.rooms.add(roomName);
+      console.log(`[Socket.IO] broadcast_comment_new: re-joined ${socket.id} to ${roomName}`);
     }
     const recipientCount = getRoomSize(roomName);
     io.to(roomName).emit('game_comment_new', comment);

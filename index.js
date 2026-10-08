@@ -165,6 +165,35 @@ io.on('connection', (socket) => {
   });
 
   // ============================================================================
+  // BROADCAST DECISION ADDED - Player ready to make the final decision (move-
+  // limited games); server broadcasts to room so others update their progress
+  // ============================================================================
+  socket.on('broadcast_decision_added', ({ gameId, userId }) => {
+    if (!gameId || !userId) {
+      console.warn('[Socket.IO] broadcast_decision_added: missing gameId or userId');
+      return;
+    }
+    const roomName = getGameRoomName(gameId);
+    const recipientCount = getRoomSize(roomName);
+    io.to(roomName).emit('decision_added', { gameId, userId });
+    console.log(`[Socket.IO] decision_added → ${roomName} user ${userId} (${recipientCount} clients)`);
+  });
+
+  // ============================================================================
+  // BROADCAST DECISION REMOVED - Player cleared their readiness
+  // ============================================================================
+  socket.on('broadcast_decision_removed', ({ gameId, userId }) => {
+    if (!gameId || !userId) {
+      console.warn('[Socket.IO] broadcast_decision_removed: missing gameId or userId');
+      return;
+    }
+    const roomName = getGameRoomName(gameId);
+    const recipientCount = getRoomSize(roomName);
+    io.to(roomName).emit('decision_removed', { gameId, userId });
+    console.log(`[Socket.IO] decision_removed → ${roomName} user ${userId} (${recipientCount} clients)`);
+  });
+
+  // ============================================================================
   // BROADCAST GAME DELETED - Owner deleted the game; remove it from story lobby
   // ============================================================================
   socket.on('broadcast_game_deleted', ({ storyId, gameId }) => {
@@ -217,6 +246,22 @@ io.on('connection', (socket) => {
     const recipientCount = getRoomSize(roomName);
     io.to(roomName).emit('game_comment_new', comment);
     console.log(`[Socket.IO] broadcast_comment_new → ${roomName} (${recipientCount} clients)`);
+  });
+
+  // ============================================================================
+  // BROADCAST COMMENT REACTION - A player reacted to a message (or removed their
+  // reaction); server broadcasts the message's new reaction counts to the room.
+  // Only the counts travel — each client keeps its own "my reaction" mark.
+  // ============================================================================
+  socket.on('broadcast_comment_reaction', ({ gameId, commentId, emojiReactions }) => {
+    if (!gameId || !commentId || !emojiReactions) {
+      console.warn('[Socket.IO] broadcast_comment_reaction: missing gameId, commentId or emojiReactions');
+      return;
+    }
+    const roomName = getGameRoomName(gameId);
+    const recipientCount = getRoomSize(roomName);
+    io.to(roomName).emit('game_comment_reaction', { gameId, commentId, emojiReactions });
+    console.log(`[Socket.IO] game_comment_reaction → ${roomName} comment ${commentId} (${recipientCount} clients)`);
   });
 
   // ============================================================================
